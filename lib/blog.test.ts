@@ -44,3 +44,22 @@ describe("filterPosts", () => {
     expect(filterPosts(SAMPLE_POSTS, { query: "nothing-matches" })).toEqual([]);
   });
 });
+
+describe("pass 3 edge cases", () => {
+  const hasLoneSurrogate = (s: string) => /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(s);
+  it("never splits an emoji into a lone surrogate", () => {
+    const text = "🎨".repeat(10);
+    for (let max = 1; max < 10; max++) {
+      const out = excerpt(text, max);
+      expect(hasLoneSurrogate(out)).toBe(false);
+      expect(Array.from(out.replace("…", ""))).toHaveLength(max);
+    }
+  });
+  it("counts emoji as one character when deciding whether to cut", () => {
+    expect(excerpt("🎨🎨🎨", 3)).toBe("🎨🎨🎨");
+  });
+  it("drops a dangling zero-width joiner at the cut", () => {
+    // family emoji: man ZWJ woman — cut right after the joiner
+    expect(excerpt("ab \u{1F468}\u200D\u{1F469}", 5)).toBe("ab \u{1F468}…");
+  });
+});

@@ -20,13 +20,20 @@ export function readingTime(text: string, wpm = 200): number {
   return Math.max(1, Math.ceil(wordCount(text) / wpm));
 }
 
-/** Cut text at a word boundary to at most `max` characters, adding an ellipsis when cut. */
+/**
+ * Cut text at a word boundary to at most `max` characters, adding an ellipsis
+ * when cut. Counts code points, not UTF-16 units, so an emoji is never split
+ * into a lone surrogate (which renders as "\uFFFD"), and a dangling
+ * zero-width joiner or variation selector is dropped with it.
+ */
 export function excerpt(text: string, max = 120): string {
   const clean = text.replace(/\s+/g, " ").trim();
-  if (clean.length <= max) return clean;
-  const cut = clean.slice(0, max);
+  const chars = Array.from(clean);
+  if (chars.length <= max) return clean;
+  const cut = chars.slice(0, max).join("");
   const lastSpace = cut.lastIndexOf(" ");
-  return `${(lastSpace > max * 0.5 ? cut.slice(0, lastSpace) : cut).replace(/[\s.,;:!?-]+$/, "")}…`;
+  const head = lastSpace > cut.length * 0.5 ? cut.slice(0, lastSpace) : cut;
+  return `${head.replace(/[\s.,;:!?\u200D\uFE0F-]+$/u, "")}…`;
 }
 
 export function tagCounts(posts: Post[]): { tag: string; count: number }[] {

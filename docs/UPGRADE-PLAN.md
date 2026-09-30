@@ -48,3 +48,11 @@ Score: 7/10 (was 6/10) — bookmarks persist across restarts; still sample posts
 - Accessibility: descriptive labels for tag chips (with counts), bookmark buttons and profile links.
 - Advisories: `overrides.postcss ^8.5.28` clears the high-severity PostCSS advisory in Expo metro-config (minor bump). Remaining `image-size` (metro, bundler-only), `uuid` (via `xcode`) and `decode-uri-component` (via `query-string@7`) need an Expo SDK major upgrade; deliberately not auto-fixed.
 - Verified: typecheck, lint, 16 vitest tests, Android `expo export` bundle.
+
+## Done in this pass (pass 3)
+
+Score: 7.5/10 (was 7/10) — edge-case hunt in `lib/blog.ts`.
+
+- Bug: `excerpt` sliced UTF-16 code units, so a post body with emoji could be cut inside a surrogate pair and render "�"; emoji also counted as two characters. It now counts code points and drops a dangling ZWJ / variation selector at the cut.
+- Backlog (P1): `readingTime` splits on whitespace, so an unspaced Thai post reads as "1 min read"; needs a script-aware word estimate (Hermes lacks `Intl.Segmenter`).
+- Verified: typecheck, lint, 19 vitest tests, Android `expo export`.
