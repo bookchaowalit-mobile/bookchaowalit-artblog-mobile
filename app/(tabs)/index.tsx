@@ -1,15 +1,29 @@
 import { useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { excerpt, filterPosts, readingTime, SAMPLE_POSTS, tagCounts } from "../../lib/blog";
+import {
+  bookmarkedPosts,
+  excerpt,
+  filterPosts,
+  readingTime,
+  SAMPLE_POSTS,
+  tagCounts,
+  toggleBookmark,
+} from "../../lib/blog";
+import { isStringArray, valueCodec } from "../../lib/persist";
+import { usePersistentState } from "../../lib/usePersistentState";
 
 const TAGS = tagCounts(SAMPLE_POSTS);
+const idsCodec = valueCodec(isStringArray);
 
 export default function BlogScreen() {
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [bookmarks, setBookmarks] = usePersistentState<string[]>("artblog.bookmarks.v1", [], idsCodec);
+  const [savedOnly, setSavedOnly] = useState(false);
 
-  const posts = filterPosts(SAMPLE_POSTS, { query, tag });
+  const pool = savedOnly ? bookmarkedPosts(SAMPLE_POSTS, bookmarks) : SAMPLE_POSTS;
+  const posts = filterPosts(pool, { query, tag });
 
   return (
     <FlatList
@@ -27,16 +41,31 @@ export default function BlogScreen() {
             accessibilityLabel="Search posts"
           />
           <View style={styles.chips}>
-            <Chip label="All" active={tag === null} onPress={() => setTag(null)} />
+            <Chip
+              label={`★ Bookmarked (${bookmarks.length})`}
+              a11yLabel={`Show bookmarked posts only, ${bookmarks.length} bookmarked`}
+              active={savedOnly}
+              onPress={() => setSavedOnly(!savedOnly)}
+            />
+            <Chip label="All" a11yLabel="All tags" active={tag === null} onPress={() => setTag(null)} />
             {TAGS.map(({ tag: t, count }) => (
-              <Chip key={t} label={`${t} (${count})`} active={tag === t} onPress={() => setTag(tag === t ? null : t)} />
+              <Chip
+                key={t}
+                label={`${t} (${count})`}
+                a11yLabel={`Tag ${t}, ${count} post${count === 1 ? "" : "s"}`}
+                active={tag === t}
+                onPress={() => setTag(tag === t ? null : t)}
+              />
             ))}
           </View>
         </View>
       }
-      ListEmptyComponent={<Text style={styles.empty}>No posts found.</Text>}
+      ListEmptyComponent={
+        <Text style={styles.empty}>{savedOnly && bookmarks.length === 0 ? "No bookmarks yet." : "No posts found."}</Text>
+      }
       renderItem={({ item }) => {
         const expanded = open === item.id;
+        const saved = bookmarks.includes(item.id);
         return (
           <Pressable
             style={styles.card}
@@ -51,6 +80,15 @@ export default function BlogScreen() {
             </Text>
             <Text style={styles.body}>{expanded ? item.body : excerpt(item.body, 140)}</Text>
             <Text style={styles.tags}>{item.tags.map((t) => `#${t}`).join("  ")}</Text>
+            <Pressable
+              onPress={() => setBookmarks((ids) => toggleBookmark(ids, item.id))}
+              style={styles.bookmark}
+              accessibilityRole="button"
+              accessibilityLabel={saved ? `Remove bookmark for ${item.title}` : `Bookmark ${item.title}`}
+              accessibilityState={{ selected: saved }}
+            >
+              <Text style={styles.bookmarkText}>{saved ? "★ Bookmarked" : "☆ Bookmark"}</Text>
+            </Pressable>
           </Pressable>
         );
       }}
@@ -58,12 +96,23 @@ export default function BlogScreen() {
   );
 }
 
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function Chip({
+  label,
+  a11yLabel,
+  active,
+  onPress,
+}: {
+  label: string;
+  a11yLabel?: string;
+  active: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
       style={[styles.chip, active && styles.chipActive]}
       accessibilityRole="button"
+      accessibilityLabel={a11yLabel ?? label}
       accessibilityState={{ selected: active }}
     >
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
@@ -74,6 +123,9 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F5F5" },
   filters: { padding: 16, gap: 10 },
+  bookmark: { alignSelf: "flex-start", marginTop: 8, paddingVertical: 4 },
+  bookmarkText: { color: "#1F5FA8", fontWeight: "600" },
+
   input: {
     backgroundColor: "#fff",
     borderWidth: 1,

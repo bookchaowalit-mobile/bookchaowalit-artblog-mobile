@@ -83,3 +83,14 @@ export const SAMPLE_POSTS: Post[] = [
       "Pressure curves matter more than the brush texture. Soften the start of the curve so light strokes stay thin, add a little stabilization, and turn off opacity jitter for clean inking.",
   },
 ];
+
+/** Adds or removes a post id from the bookmark list (newest bookmark first). */
+export function toggleBookmark(ids: string[], id: string): string[] {
+  return ids.includes(id) ? ids.filter((x) => x !== id) : [id, ...ids];
+}
+
+/** Keeps only posts that are bookmarked, in bookmark order; unknown ids are ignored. */
+export function bookmarkedPosts(posts: Post[], ids: string[]): Post[] {
+  const byId = new Map(posts.map((p) => [p.id, p]));
+  return ids.map((id) => byId.get(id)).filter((p): p is Post => p !== undefined);
+}
