@@ -1,125 +1,97 @@
-import { StyleSheet, Text, View, ScrollView, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { excerpt, filterPosts, readingTime, SAMPLE_POSTS, tagCounts } from "../../lib/blog";
 
-export default function HomeScreen() {
+const TAGS = tagCounts(SAMPLE_POSTS);
+
+export default function BlogScreen() {
+  const [query, setQuery] = useState("");
+  const [tag, setTag] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+
+  const posts = filterPosts(SAMPLE_POSTS, { query, tag });
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Artblog</Text>
-        <Text style={styles.subtitle}>Artblog — Mobile app (expo)</Text>
-      </View>
-
-      <View style={styles.cardGrid}>
-        <FeatureCard
-          icon="rocket"
-          title="Getting Started"
-          description="Welcome to the mobile version. Start building your experience."
-        />
-        <FeatureCard
-          icon="code"
-          title="Tech Stack"
-          description="Built with Expo, React Native, and TypeScript."
-        />
-        <FeatureCard
-          icon="phone-portrait"
-          title="Cross-Platform"
-          description="Runs on iOS, Android, and Web from a single codebase."
-        />
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Part of Chaowalit Greepoke's 101 Portfolio Projects
-        </Text>
-        <Link href="https://bookchaowalit.com" asChild>
-          <Pressable>
-            <Text style={styles.link}>bookchaowalit.com</Text>
+    <FlatList
+      style={styles.container}
+      data={posts}
+      keyExtractor={(p) => p.id}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={
+        <View style={styles.filters}>
+          <TextInput
+            style={styles.input}
+            placeholder="Search posts"
+            value={query}
+            onChangeText={setQuery}
+            accessibilityLabel="Search posts"
+          />
+          <View style={styles.chips}>
+            <Chip label="All" active={tag === null} onPress={() => setTag(null)} />
+            {TAGS.map(({ tag: t, count }) => (
+              <Chip key={t} label={`${t} (${count})`} active={tag === t} onPress={() => setTag(tag === t ? null : t)} />
+            ))}
+          </View>
+        </View>
+      }
+      ListEmptyComponent={<Text style={styles.empty}>No posts found.</Text>}
+      renderItem={({ item }) => {
+        const expanded = open === item.id;
+        return (
+          <Pressable
+            style={styles.card}
+            onPress={() => setOpen(expanded ? null : item.id)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded }}
+            accessibilityHint={expanded ? "Collapses the post" : "Reads the full post"}
+          >
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            <Text style={styles.meta}>
+              {item.author} · {item.publishedAt} · {readingTime(item.body)} min read
+            </Text>
+            <Text style={styles.body}>{expanded ? item.body : excerpt(item.body, 140)}</Text>
+            <Text style={styles.tags}>{item.tags.map((t) => `#${t}`).join("  ")}</Text>
           </Pressable>
-        </Link>
-      </View>
-    </ScrollView>
+        );
+      }}
+    />
   );
 }
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-}) {
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <View style={styles.card}>
-      <Ionicons name={icon} size={28} color="#4A90D9" />
-      <Text style={styles.cardTitle}>{title}</Text>
-      <Text style={styles.cardDescription}>{description}</Text>
-    </View>
+    <Pressable
+      onPress={onPress}
+      style={[styles.chip, active && styles.chipActive]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F5F5F5",
-  },
-  header: {
-    backgroundColor: "#4A90D9",
-    padding: 24,
-    paddingTop: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.85)",
-    lineHeight: 20,
-  },
-  cardGrid: {
-    padding: 16,
-    gap: 12,
-  },
-  card: {
+  container: { flex: 1, backgroundColor: "#F5F5F5" },
+  filters: { padding: 16, gap: 10 },
+  input: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    alignItems: "center",
-    gap: 8,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-  },
-  cardDescription: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  footer: {
-    padding: 24,
-    alignItems: "center",
-    gap: 8,
-  },
-  footerText: {
-    fontSize: 12,
-    color: "#999",
-  },
-  link: {
-    fontSize: 14,
-    color: "#4A90D9",
-    fontWeight: "500",
-  },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: "#E3ECF7" },
+  chipActive: { backgroundColor: "#4A90D9" },
+  chipText: { color: "#2A5A8C", fontWeight: "500" },
+  chipTextActive: { color: "#fff" },
+  empty: { textAlign: "center", color: "#777", marginTop: 32 },
+  card: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginHorizontal: 16, marginBottom: 12, gap: 6, elevation: 2 },
+  cardTitle: { fontSize: 18, fontWeight: "700", color: "#333" },
+  meta: { fontSize: 12, color: "#888" },
+  body: { fontSize: 15, color: "#444", lineHeight: 22 },
+  tags: { fontSize: 13, color: "#4A90D9" },
 });
